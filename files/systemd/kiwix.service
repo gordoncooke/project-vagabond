@@ -1,0 +1,13 @@
+[Unit]
+Description=Kiwix Offline Library Server
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+ExecStart=/usr/bin/kiwix-serve --library --monitorLibrary --address=127.0.0.1 --port=8081 --urlRootLocation=/wiki /srv/library/kiwix/library.xml
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

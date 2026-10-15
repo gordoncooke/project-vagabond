@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Offline Library Maps</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <link rel="stylesheet" href="/maps/vendor/maplibre-gl.css">
+
+    <style>
+        html, body, #map {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+        }
+
+        #info {
+            position: absolute;
+            left: 10px;
+            bottom: 30px;
+            z-index: 10;
+            background: rgba(255,255,255,0.95);
+            padding: 10px 12px;
+            border-radius: 5px;
+            font-family: sans-serif;
+            font-size: 14px;
+            line-height: 1.45;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.35);
+            min-width: 260px;
+        }
+
+        #measure {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid #aaa;
+        }
+
+        #clear {
+            margin-top: 8px;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+
+        .label {
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+
+<div id="map"></div>
+
+<div id="info">
+    <div>
+        <span class="label">Lat/Lon:</span>
+        <span id="latlon">Move over map</span>
+    </div>
+
+    <div>
+        <span class="label">MGRS:</span>
+        <span id="mgrs">—</span>
+    </div>
+
+    <div id="measure">
+        <div><b>Click map to set Point A.</b></div>
+        <div id="pointA">A: —</div>
+        <div id="pointB">B: —</div>
+        <div id="distance">Distance: —</div>
+        <div id="bearing">Bearing: —</div>
+
+        <button id="clear">Clear measurement</button>
+    </div>
+</div>
+
+<script src="/maps/vendor/maplibre-gl.js"></script>
+<script src="/maps/vendor/pmtiles.js"></script>
+<script src="/maps/vendor/basemaps.js"></script>
+<script src="/maps/vendor/mgrs.min.js"></script>
+
+<script>
+const protocol = new pmtiles.Protocol();
+maplibregl.addProtocol("pmtiles", protocol.tile);
+
+const PMTILES_URL =
+    window.location.origin + "/maps/data/hudson-valley.pmtiles";
+
+const GLYPHS_URL =
+    window.location.origin +
+    "/maps/assets/fonts/{fontstack}/{range}.pbf";
+
+const SPRITE_URL =
+    window.location.origin +
+    "/maps/assets/sprites/v4/light";
+
+const map = new maplibregl.Map({
+    container: "map",
+
+    center: [-73.77813758982381, 41.588158327464086],
+    zoom: 11,
+
+    style: {
+        version: 8,
+
+        glyphs: GLYPHS_URL,
+        sprite: SPRITE_URL,
+
+        sources: {
+            protomaps: {
+                type: "vector",
+                url: "pmtiles://" + PMTILES_URL,
+                attribution:
+                    'Protomaps © OpenStreetMap contributors'
+            }
+        },
+
+        layers: basemaps.layers(
+            "protomaps",
+            basemaps.namedFlavor("light"),
+            {lang: "en"}
+        )
+    }
+});
+
+map.addControl(
+    new maplibregl.NavigationControl(),
+    "top-right"
+);
+
+map.addControl(
+    new maplibregl.ScaleControl({
+        unit: "imperial"
+    }),
+    "bottom-left"
+);
+
+
+function formatMgrs(value) {
+    const match =
+        value.match(/^(\d{1,2}[C-X])([A-Z]{2})(\d{5})(\d{5})$/);
+
+    if (!match) return value;
+
+    return `${match[1]} ${match[2]} ${match[3]} ${match[4]}`;
+}
+
+
+function mgrsFor(lon, lat) {
+    try {
+        return formatMgrs(
+            mgrs.forward([lon, lat], 5)
+        );
+    } catch (e) {
+        return "—";
+    }
+}
+
+
+map.on("mousemove", (e) => {
+    const lon = e.lngLat.lng;
+    const lat = e.lngLat.lat;
+
+    document.getElementById("latlon").textContent =
+        `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+
+    document.getElementById("mgrs").textContent =
+        mgrsFor(lon, lat);
+});
+
+
+let pointA = null;
+let pointB = null;
+
+let markerA = null;
+let markerB = null;
+
+
+function radians(degrees) {
+    return degrees * Math.PI / 180;
+}
+
+
+function degrees(radiansValue) {
+    return radiansValue * 180 / Math.PI;
+}
+
+
+function distanceMeters(a, b) {
+    const R = 6371008.8;
+
+    const lat1 = radians(a.lat);
+    const lat2 = radians(b.lat);
+
+    const dLat = radians(b.lat - a.lat);
+    const dLon = radians(b.lng - a.lng);
+
+    const h =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(lat1) *
+        Math.cos(lat2) *
+        Math.sin(dLon / 2) ** 2;
+
+    return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+
+function initialBearing(a, b) {
+    const lat1 = radians(a.lat);
+    const lat2 = radians(b.lat);
+    const dLon = radians(b.lng - a.lng);
+
+    const y =
+        Math.sin(dLon) * Math.cos(lat2);
+
+    const x =
+        Math.cos(lat1) * Math.sin(lat2) -
+        Math.sin(lat1) *
+        Math.cos(lat2) *
+        Math.cos(dLon);
+
+    return (degrees(Math.atan2(y, x)) + 360) % 360;
+}
+
+
+function updateLine() {
+
+    const source = map.getSource("measurement-line");
+
+    if (!source) return;
+
+    if (!pointA || !pointB) {
+        source.setData({
+            type: "FeatureCollection",
+            features: []
+        });
+
+        return;
+    }
+
+    source.setData({
+        type: "Feature",
+        geometry: {
+            type: "LineString",
+            coordinates: [
+                [pointA.lng, pointA.lat],
+                [pointB.lng, pointB.lat]
+            ]
+        }
+    });
+}
+
+
+function clearMeasurement() {
+
+    pointA = null;
+    pointB = null;
+
+    if (markerA) markerA.remove();
+    if (markerB) markerB.remove();
+
+    markerA = null;
+    markerB = null;
+
+    document.getElementById("pointA").textContent = "A: —";
+    document.getElementById("pointB").textContent = "B: —";
+    document.getElementById("distance").textContent = "Distance: —";
+    document.getElementById("bearing").textContent = "Bearing: —";
+
+    document.querySelector("#measure b").textContent =
+        "Click map to set Point A.";
+
+    updateLine();
+}
+
+
+map.on("load", () => {
+
+    map.addSource("measurement-line", {
+        type: "geojson",
+        data: {
+            type: "FeatureCollection",
+            features: []
+        }
+    });
+
+    map.addLayer({
+        id: "measurement-line",
+        type: "line",
+        source: "measurement-line",
+
+        paint: {
+            "line-color": "#d00000",
+            "line-width": 3
+        }
+    });
+});
+
+
+map.on("click", (e) => {
+
+    const p = {
+        lng: e.lngLat.lng,
+        lat: e.lngLat.lat
+    };
+
+
+    if (!pointA || pointB) {
+
+        clearMeasurement();
+
+        pointA = p;
+
+        markerA = new maplibregl.Marker()
+            .setLngLat([p.lng, p.lat])
+            .addTo(map);
+
+        document.getElementById("pointA").textContent =
+            `A: ${mgrsFor(p.lng, p.lat)}`;
+
+        document.querySelector("#measure b").textContent =
+            "Click map to set Point B.";
+
+        return;
+    }
+
+
+    pointB = p;
+
+    markerB = new maplibregl.Marker()
+        .setLngLat([p.lng, p.lat])
+        .addTo(map);
+
+    document.getElementById("pointB").textContent =
+        `B: ${mgrsFor(p.lng, p.lat)}`;
+
+    const meters =
+        distanceMeters(pointA, pointB);
+
+    const bearing =
+        initialBearing(pointA, pointB);
+
+
+    let distanceText;
+
+    if (meters < 1000) {
+        distanceText =
+            `${meters.toFixed(0)} m`;
+    } else {
+        distanceText =
+            `${(meters / 1000).toFixed(2)} km`;
+    }
+
+
+    document.getElementById("distance").textContent =
+        `Distance: ${distanceText}`;
+
+    document.getElementById("bearing").textContent =
+        `Bearing: ${bearing.toFixed(1)}° true`;
+
+    document.querySelector("#measure b").textContent =
+        "Click again to start a new measurement.";
+
+    updateLine();
+});
+
+
+document.getElementById("clear")
+    .addEventListener("click", (e) => {
+
+        e.stopPropagation();
+
+        clearMeasurement();
+    });
+
+</script>
+
+
+<script src="/maps/vendor/maplibre-contour.min.js"></script>
+<script src="/maps/topo.js"></script>
+
+
+<!-- GPS-START -->
+<script>
+if ("geolocation" in navigator) {
+
+    navigator.geolocation.getCurrentPosition(
+
+        position => {
+
+            const lon =
+                position.coords.longitude;
+
+            const lat =
+                position.coords.latitude;
+
+            map.setCenter([lon, lat]);
+
+            map.setZoom(12);
+
+            new maplibregl.Marker({
+                color: "#0066ff"
+            })
+            .setLngLat([lon, lat])
+            .addTo(map);
+        },
+
+        error => {
+            console.log(
+                "GPS unavailable:",
+                error.message
+            );
+        },
+
+        {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 30000
+        }
+    );
+}
+</script>
+<!-- GPS-END -->
+
+</body>
+</html>

@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Restore ONLY a confirmed zero-byte persistent NM keyfile.
+# Never repair merely because a connection name, SSID or password changed.
+set -euo pipefail
+
+. /etc/offline-library/network.conf
+
+if [[ -z "${HOME_PROFILE_FILE:-}" || -z "${HOME_PROFILE_BASELINE:-}" ]]; then
+    exit 0  # E.g., Netplan-generated connection; no keyfile to repair.
+fi
+
+# A missing file may be an intentional migration; leave it alone.
+[[ -e "$HOME_PROFILE_FILE" ]] || exit 0
+
+# Any nonempty file is left untouched, even when settings have changed.
+[[ ! -s "$HOME_PROFILE_FILE" ]] || exit 0
+
+if [[ ! -s "$HOME_PROFILE_BASELINE" ]] ||
+   ! grep -Eq "^[[:space:]]*uuid[[:space:]]*=[[:space:]]*${HOME_PROFILE_UUID}[[:space:]]*$" "$HOME_PROFILE_BASELINE"; then
+    logger -p daemon.err -t library-network "HOME keyfile is zero bytes; no valid recovery baseline."
+    exit 0
+fi
+
+# Atomic replacement on same filesystem; only our known path is restored.
+profile_dir="$(dirname -- "$HOME_PROFILE_FILE")"
+tmp="$(mktemp "$profile_dir/.offline-library-recovery.XXXXXX")"
+trap 'rm -f -- "$tmp"' EXIT
+install -o root -g root -m 600 "$HOME_PROFILE_BASELINE" "$tmp"
+mv -f -- "$tmp" "$HOME_PROFILE_FILE"
+nmcli connection reload || true
+logger -p daemon.notice -t library-network "Restored zero-byte HOME keyfile from original baseline."
+exit 0

@@ -1,0 +1,94 @@
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+
+    listen 443 ssl;
+    listen [::]:443 ssl;
+
+    server_name _;
+
+    ssl_certificate     /etc/offline-library/tls/library.local.crt;
+    ssl_certificate_key /etc/offline-library/tls/library.local.key;
+
+    ssl_protocols TLSv1.2 TLSv1.3;
+
+    root /var/www/offline-library;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+
+    location = /tools/omnitools {
+        return 301 /tools/omnitools/;
+    }
+
+    location /tools/omnitools/ {
+        try_files $uri $uri/ /tools/omnitools/index.html;
+    }
+
+    location = /wiki {
+        return 301 /wiki/;
+    }
+
+    location /wiki/ {
+        proxy_pass http://127.0.0.1:8081;
+
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # VuIO user interface
+    location = /media {
+        return 302 http://$host:8090/;
+    }
+
+    location = /media/ {
+        return 302 http://$host:8090/;
+    }
+
+   # FLATNOTES-BEGIN
+    location = /notes {
+        return 301 /notes/;
+    }
+
+    location /notes/ {
+        proxy_pass http://127.0.0.1:8082;
+        proxy_http_version 1.1;
+
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+    # FLATNOTES-END
+
+    # ADMIN-BEGIN
+    location = /admin {
+        return 301 https://$host/admin/;
+    }
+
+    location /admin/ {
+        if ($scheme = http) {
+            return 301 https://$host$request_uri;
+        }
+
+        auth_basic "Offline Library Administration";
+        auth_basic_user_file /etc/nginx/.offline-library-admin.htpasswd;
+
+        proxy_pass http://127.0.0.1:5050/;
+        proxy_http_version 1.1;
+
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Prefix /admin;
+
+        add_header Cache-Control "no-store" always;
+    }
+    # ADMIN-END
+
+}

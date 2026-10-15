@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1, viewport-fit=cover"
+    >
+
+    <title>Offline Games</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            margin: 0;
+            min-height: 100%;
+            background: #111827;
+            color: #f3f4f6;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont,
+                         "Segoe UI", sans-serif;
+        }
+
+        body {
+            padding: 16px;
+        }
+
+        .container {
+            width: min(100%, 1000px);
+            margin: 0 auto;
+        }
+
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .topbar h1 {
+            margin: 0;
+            font-size: 1.7rem;
+        }
+
+        .home-link {
+            color: #93c5fd;
+            text-decoration: none;
+            font-weight: 600;
+            padding: 10px 12px;
+        }
+
+        .launcher {
+            max-width: 600px;
+            margin: 50px auto 0;
+            padding: 24px;
+            background: #1f2937;
+            border-radius: 14px;
+        }
+
+        .launcher h2 {
+            margin-top: 0;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        select {
+            width: 100%;
+            min-height: 50px;
+            padding: 10px;
+            font-size: 1rem;
+            margin-bottom: 18px;
+            border-radius: 8px;
+        }
+
+        button {
+            font: inherit;
+            cursor: pointer;
+            border: 0;
+            border-radius: 8px;
+        }
+
+        .play-button {
+            width: 100%;
+            min-height: 50px;
+            background: #2563eb;
+            color: white;
+            font-weight: 700;
+        }
+
+        .player-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+
+        .change-button {
+            min-height: 44px;
+            padding: 8px 14px;
+            background: #374151;
+            color: white;
+            font-weight: 600;
+        }
+
+        #game-title {
+            margin: 0;
+            font-size: 1.2rem;
+        }
+
+        #player-area {
+            display: none;
+        }
+
+        #game {
+           width: 100%;
+           height: calc(100vh - 220px);
+           max-height: 650px;
+           min-height: 300px;
+           background: #000;
+        }
+
+        .help {
+            margin-top: 18px;
+            color: #d1d5db;
+            line-height: 1.5;
+            font-size: 0.95rem;
+        }
+
+        @media (max-width: 600px) {
+
+            body {
+                padding: 8px;
+            }
+
+            .topbar {
+                margin-bottom: 10px;
+            }
+
+            .launcher {
+                margin-top: 20px;
+                padding: 18px;
+            }
+
+            #game {
+                height: calc(100vh - 200px);
+                min-height: 280px;
+            }
+
+            .player-toolbar {
+                flex-wrap: wrap;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <header class="topbar">
+        <h1>Offline Games</h1>
+        <a class="home-link" href="/">Library Home</a>
+    </header>
+
+
+    <!-- Game selection screen -->
+
+    <section id="launcher" class="launcher">
+
+        <h2>Choose a Game</h2>
+
+        <label for="game-select">Game</label>
+
+        <select id="game-select">
+        </select>
+
+        <button id="play-button" class="play-button">
+            Play Game
+        </button>
+
+        <div class="help">
+            Games run directly in your browser.
+            Phones and tablets can use EmulatorJS's built-in
+            on-screen controls.
+        </div>
+
+    </section>
+
+
+    <!-- Emulator screen -->
+
+    <section id="player-area">
+
+        <div class="player-toolbar">
+
+            <button
+                id="change-button"
+                class="change-button"
+                type="button"
+            >
+                ← Choose Another Game
+            </button>
+
+            <h2 id="game-title"></h2>
+
+        </div>
+
+        <div id="game"></div>
+
+    </section>
+
+</div>
+
+
+<script>
+
+/*
+ * ==========================================================
+ * GAME LIBRARY
+ * ==========================================================
+ *
+ * This is the only section you normally need to edit when
+ * adding additional games.
+ */
+
+const games = {
+
+    "super-mario": {
+        name: "Super Mario Bros.",
+        system: "NES",
+        core: "nes",
+        rom: "./roms/nes/super-mario.nes"
+    },
+
+    "zelda": {
+        name: "The Legend of Zelda",
+        system: "NES",
+        core: "nes",
+        rom: "./roms/nes/zelda.nes"
+    },
+
+    "Bubble-Bobble": {
+        name: "Bubble Bobble",
+        system: "NES",
+        core: "nes",
+        rom: "./roms/nes/Bubble-Bobble.nes"
+    },
+
+    "Contra": {
+        name: "Contra",
+        system: "NES",
+        core: "nes",
+        rom: "./roms/nes/Contra.nes"
+    },
+
+    "Gauntlet": {
+        name: "Gauntlet",
+        system: "NES",
+        core: "nes",
+        rom: "./roms/nes/Gauntlet.nes"
+    },
+
+    "Gauntlet2": {
+        name: "Gauntlet II",
+        system: "NES",
+        core: "nes",
+        rom: "./roms/nes/Gauntlet2.nes"
+    },
+
+    "Kirbys-Adventure": {
+        name: "Kirby's Adventure",
+        system: "NES",
+        core: "nes",
+        rom: "./roms/nes/Kirbys-Adventure.nes"
+    },
+
+    "Lemmings": {
+        name: "Lemmings",
+        system: "NES",
+        core: "nes",
+        rom: "./roms/nes/Lemmings.nes"
+    },
+    "Mike-Tysons-Punch-Out": {
+        name: "Mike Tyson's Punch-Out!",
+        system: "NES",
+        core: "nes",
+        rom: "./roms/nes/Mike-Tysons-Punch-Out.nes"
+    },
+    "Rampage": {
+        name: "Rampage",
+        system: "NES",
+        core: "nes",
+        rom: "./roms/nes/Rampage.nes"
+    },
+
+    "Super-Mario_Bris-2": {
+        name: "Super Mario Bros. 2",
+        system: "NES",
+        core: "nes",
+        rom: "./roms/nes/Super-Mario-Bros-2.nes"
+    },
+    "Super-Mario-Bros-3": {
+        name: "Super Mario Bros. 3",
+        system: "NES",
+        core: "nes",
+        rom: "./roms/nes/Super-Mario-Bros-3.nes"
+    },
+    "Teenage-Mutant-Ninja-Turtles": {
+        name: "Teenage Mutant Ninja Turtles",
+        system: "NES",
+        core: "nes",
+        rom: "./roms/nes/Teenage-Mutant-Ninja-Turtles.nes"
+    },
+    "Tetris": {
+        name: "Tetris",
+        system: "NES",
+        core: "nes",
+        rom: "./roms/nes/Tetris.nes"
+    },
+    "Zelda-II-The-Adventure-of-Link": {
+        name: "Zelda II: The Adventure of Link",
+        system: "NES",
+        core: "nes",
+        rom: "./roms/nes/Zelda-II-The-Adventure-of-Link.nes"
+    },
+    "Donkey-Kong-Country": {
+        name: "Donkey Kong Country",
+        system: "GBA",
+        core: "gba",
+        rom: "./roms/gba/Donkey-Kong-Country.gba"
+    },
+    "Zelda-Minish-Cap": {
+        name: "Legend of Zelda: The Minish Cap",
+        system: "GBA",
+        core: "gba",
+        rom: "./roms/gba/Zelda-Minish-Cap.gba"
+    }
+
+};
+
+
+/*
+ * ==========================================================
+ * GAME SELECTOR
+ * ==========================================================
+ */
+
+const launcher =
+    document.getElementById("launcher");
+
+const playerArea =
+    document.getElementById("player-area");
+
+const select =
+    document.getElementById("game-select");
+
+const playButton =
+    document.getElementById("play-button");
+
+const gameTitle =
+    document.getElementById("game-title");
+
+
+/*
+ * Build the dropdown automatically from the games object.
+ */
+
+for (const [key, game] of Object.entries(games)) {
+
+    const option =
+        document.createElement("option");
+
+    option.value = key;
+
+    option.textContent =
+        game.name + " (" + game.system + ")";
+
+    select.appendChild(option);
+}
+
+
+/*
+ * Clicking Play reloads this same page with a game specified.
+ *
+ * Example:
+ *
+ * /games/?game=super-mario
+ *
+ * Reloading gives EmulatorJS a completely fresh instance.
+ */
+
+playButton.addEventListener("click", function () {
+
+    const selectedGame =
+        select.value;
+
+    if (!selectedGame) {
+        return;
+    }
+
+    window.location.href =
+        "?game=" + encodeURIComponent(selectedGame);
+
+});
+
+
+/*
+ * ==========================================================
+ * GAME LOADER
+ * ==========================================================
+ */
+
+const params =
+    new URLSearchParams(window.location.search);
+
+const selectedKey =
+    params.get("game");
+
+
+if (selectedKey && games[selectedKey]) {
+
+    const selectedGame =
+        games[selectedKey];
+
+    launcher.style.display =
+        "none";
+
+    playerArea.style.display =
+        "block";
+
+    gameTitle.textContent =
+        selectedGame.name;
+
+
+    /*
+     * EmulatorJS configuration.
+     */
+
+    window.EJS_player =
+        "#game";
+
+    window.EJS_core =
+        selectedGame.core;
+
+    window.EJS_gameName =
+        selectedGame.name;
+
+    window.EJS_gameUrl =
+        selectedGame.rom;
+
+    window.EJS_pathtodata =
+        "./emulatorjs/data/";
+
+    /*
+     * Turn off the Start Game screen and load right awat
+     *
+     * If people have trouble where browser wont let game auto load
+     * the change to false so the start button appears first.
+     * This avoids browser autoplay/user-interaction issues
+     * and matches the configuration we've already tested.
+     */
+
+    window.EJS_startOnLoaded =
+        true;
+
+    window.EJS_alignStartButton = "center";
+
+
+    /*
+     * Load EmulatorJS.
+     */
+
+    /*
+     * Custom NES mobile controller.
+     * Circular sliding joystick sends digital NES D-pad inputs.
+     */
+    if (selectedGame.system === "NES") {
+
+        window.EJS_controlScheme = "nes";
+
+        window.EJS_VirtualGamepadSettings = [
+
+            {
+                type: "zone",
+                location: "left",
+                left: "50%",
+                top: "50%",
+                joystickInput: false,
+                inputValues: [4, 5, 6, 7],
+                color: "white"
+            },
+
+            {
+                type: "button",
+                text: "B",
+                id: "b",
+                location: "right",
+                left: 0,
+                top: 40,
+                bold: true,
+                input_value: 0
+            },
+
+            {
+                type: "button",
+                text: "A",
+                id: "a",
+                location: "right",
+                left: 80,
+                top: 40,
+                bold: true,
+                input_value: 8
+            },
+
+            {
+                type: "button",
+                text: "Select",
+                id: "select",
+                location: "center",
+                left: -10,
+                fontSize: 15,
+                block: true,
+                input_value: 2
+            },
+
+            {
+                type: "button",
+                text: "Start",
+                id: "start",
+                location: "center",
+                left: 60,
+                fontSize: 15,
+                block: true,
+                input_value: 3
+            }
+
+        ];
+    }
+
+    const loader =
+        document.createElement("script");
+
+    loader.src =
+        "./emulatorjs/data/loader.js";
+
+    document.body.appendChild(loader);
+}
+
+
+/*
+ * Return to the game selector.
+ */
+
+document
+    .getElementById("change-button")
+    .addEventListener("click", function () {
+
+        window.location.href =
+            window.location.pathname;
+
+    });
+
+</script>
+
+</body>
+</html>

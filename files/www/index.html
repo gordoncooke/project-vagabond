@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+<title>Vagabond Offline Library</title>
+
+<style>
+body {
+    font-family: sans-serif;
+    max-width: 900px;
+    margin: 40px auto;
+    padding: 0 20px;
+}
+
+.home-cards {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+    margin: 20px auto;
+}
+
+.home-card {
+    margin: 0;
+    max-width: none;
+}
+
+.home-card a {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 18px 20px;
+    height: 100%;
+    box-sizing: border-box;
+
+    color: inherit;
+    text-decoration: none;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(128,128,128,0.35);
+    border-radius: 10px;
+}
+
+.home-card a:hover {
+    background: rgba(128,128,128,0.15);
+}
+
+.home-icon {
+    flex-shrink: 0;
+    font-size: 38px;
+}
+
+.home-card h2 {
+    margin: 0 0 5px 0;
+}
+
+.home-card p {
+    margin: 0;
+}
+
+/* Two-column layout on wider screens */
+@media (min-width: 700px) {
+    .home-cards {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+</style>
+
+</head>
+
+<body>
+
+<h1>Vagabond</h1>
+<p class="subtitle">Offline Resource Hub</p>
+
+<div class="home-cards">
+
+    <section class="home-card">
+        <a href="/wiki/">
+            <div class="home-icon">📚</div>
+            <div>
+                <h2>Wikipedia &amp; Reference</h2>
+                <p>Offline reference library powered by Kiwix.</p>
+            </div>
+        </a>
+    </section>
+
+    <section class="home-card">
+        <a href="/media/">
+            <div class="home-icon">🎬</div>
+            <div>
+                <h2>Media</h2>
+                <p>Movies, music, and photos available offline.</p>
+            </div>
+        </a>
+    </section>
+
+    <section class="home-card">
+        <a href="/maps/">
+            <div class="home-icon">🗺️</div>
+            <div>
+                <h2>Maps</h2>
+                <p>Offline maps, topo, MGRS, distance and bearing</p>
+            </div>
+        </a>
+    </section>
+
+    <section class="home-card">
+        <a href="/notes/">
+            <div class="home-icon">📝</div>
+            <div>
+                <h2>Notes</h2>
+                <p>Create, edit, search, and store local notes</p>
+            </div>
+        </a>
+    </section>
+
+    <section class="home-card">
+        <a href="/games/">
+            <div class="home-icon">🎮</div>
+            <div>
+                <h2>Games</h2>
+                <p>Play offline games in your browser.</p>
+            </div>
+        </a>
+    </section>
+
+    <section class="home-card">
+        <a href="/tools/cyberchef/">
+            <div class="home-icon">🧰</div>
+            <div>
+                <h2>CyberChef</h2>
+                <p>Offline data conversion, encoding, decoding, analysis, and utility tools</p>
+            </div>
+        </a>
+    </section>
+
+    <section class="home-card">
+        <a href="/tools/omnitools/">
+            <div class="home-icon">🛠️</div>
+            <div>
+                <h2>OmniTools</h2>
+                <p>Offline image, PDF, text, data, conversion, and utility tools</p>
+            </div>
+        </a>
+    </section>
+
+    <section class="home-card">
+        <a href="/tools/excalidraw/">
+            <div class="home-icon">✏️</div>
+            <div>
+                <h2>Excalidraw</h2>
+                <p>Offline whiteboard, sketching, and diagramming</p>
+            </div>
+        </a>
+    </section>
+
+    <section class="home-card">
+        <a href="/tools/minipaint/">
+            <div class="home-icon">🖌️</div>
+            <div>
+                <h2>miniPaint</h2>
+                <p>Offline Photoshop alternative that runs in your browser</p>
+            </div>
+        </a>
+    </section>
+
+</div>
+
+<p>
+  <a href="/setup/">HTTPS Certificate Setup</a>
+</p>
+
+</body>
+</html>

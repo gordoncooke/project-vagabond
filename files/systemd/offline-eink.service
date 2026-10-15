@@ -1,0 +1,19 @@
+[Unit]
+Description=Offline Library e-ink status display
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/offline-library/eink
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 /opt/offline-library/eink/status_display.py
+
+Restart=on-failure
+RestartSec=10
+
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

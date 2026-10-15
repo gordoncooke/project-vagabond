@@ -1,0 +1,114 @@
+#!/usr/bin/env python3
+
+import json
+import subprocess
+import sys
+
+
+def run(args):
+    try:
+        result = subprocess.run(
+            args,
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False
+        )
+        return result.stdout.strip()
+    except Exception as exc:
+        return f"Unable to read log: {exc}"
+
+
+def warning_lines(limit=200):
+    text = run([
+        "journalctl",
+        "-b",
+        "-p", "warning..alert",
+        "-n", str(limit),
+        "--no-pager",
+        "-o", "short-iso"
+    ])
+
+    if not text:
+        return []
+
+    return [line for line in text.splitlines() if line.strip()]
+
+
+kind = sys.argv[1] if len(sys.argv) > 1 else "summary"
+
+if kind == "summary":
+    lines = warning_lines(200)
+
+    count = len(lines)
+    display = "200+" if count >= 200 else str(count)
+
+    print(json.dumps({
+        "ok": True,
+        "warnings_count": count,
+        "warnings_display": display
+    }))
+    sys.exit(0)
+
+
+if kind == "warnings":
+    lines = warning_lines(80)
+
+    text = "\n".join(lines)
+
+    if not text:
+        text = "No warnings or errors recorded since boot."
+
+    print(json.dumps({
+        "ok": True,
+        "text": text
+    }))
+    sys.exit(0)
+
+
+if kind == "ups":
+    text = run([
+        "journalctl",
+        "-b",
+        "-u", "lafvin-ups.service",
+        "-n", "80",
+        "--no-pager",
+        "-o", "short-iso"
+    ])
+
+    if not text:
+        text = "No UPS log entries found."
+
+    print(json.dumps({
+        "ok": True,
+        "text": text
+    }))
+    sys.exit(0)
+
+
+if kind == "network":
+    text = run([
+        "journalctl",
+        "-b",
+        "-u", "library-network-switch.service",
+        "-u", "library-network-auto.service",
+        "-n", "80",
+        "--no-pager",
+        "-o", "short-iso"
+    ])
+
+    if not text:
+        text = "No network-controller log entries found."
+
+    print(json.dumps({
+        "ok": True,
+        "text": text
+    }))
+    sys.exit(0)
+
+
+print(json.dumps({
+    "ok": False,
+    "error": "Unsupported diagnostic request."
+}))
+sys.exit(1)

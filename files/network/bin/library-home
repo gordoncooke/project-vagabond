@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+. /etc/offline-library/network.conf
+systemctl stop library-network-auto.service
+nmcli radio wifi on
+nmcli --wait 30 connection up uuid "$HOME_PROFILE_UUID" ifname "$WIFI_INTERFACE"

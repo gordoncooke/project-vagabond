@@ -1,0 +1,65 @@
+#!/usr/bin/env python3
+
+import json
+import subprocess
+import sys
+
+HOME_PROFILE = "netplan-wlan0-Cooke-home-wifi"
+HOTSPOT_PROFILE = "OfflineLibrary-AP"
+
+
+def nmcli_value(profile, field, show_secrets=False):
+    command = ["nmcli"]
+
+    if show_secrets:
+        command.append("--show-secrets")
+
+    command += [
+        "-g",
+        field,
+        "connection",
+        "show",
+        profile,
+    ]
+
+    result = subprocess.run(
+        command,
+        capture_output=True,
+        text=True,
+        timeout=5,
+    )
+
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"Unable to read NetworkManager profile: {profile}"
+        )
+
+    return result.stdout.rstrip("\n")
+
+
+data = {
+    "home": {
+        "profile": HOME_PROFILE,
+        "ssid": nmcli_value(
+            HOME_PROFILE,
+            "802-11-wireless.ssid"
+        ),
+        "password": None,
+    },
+
+    "hotspot": {
+        "profile": HOTSPOT_PROFILE,
+        "ssid": nmcli_value(
+            HOTSPOT_PROFILE,
+            "802-11-wireless.ssid"
+        ),
+        "password": nmcli_value(
+            HOTSPOT_PROFILE,
+            "802-11-wireless-security.psk",
+            show_secrets=True
+        ),
+    },
+}
+
+json.dump(data, sys.stdout)
+print()

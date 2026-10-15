@@ -1,0 +1,1 @@
+library-admin ALL=(root) NOPASSWD: /usr/local/sbin/library-admin-network-read, /usr/local/sbin/library-admin-network-write, /usr/local/sbin/library-admin-diagnostics

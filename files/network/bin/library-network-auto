@@ -1,0 +1,114 @@
+#!/usr/bin/env bash
+# AUTO: prefer existing HOME Wi-Fi; use OfflineLibrary AP when unavailable.
+set -u -o pipefail
+
+. /etc/offline-library/network.conf
+IFACE="$WIFI_INTERFACE"
+FAILOVER_GRACE=15
+CHECK_INTERVAL=10
+AP_RETRY_INTERVAL=300
+
+log() { echo "library-auto: $*"; }
+
+# UUID avoids depending on a profile display name or SSID.
+active_uuid() {
+    nmcli -t -f UUID,DEVICE connection show --active 2>/dev/null |
+        awk -F: -v iface="$IFACE" '$2 == iface {print $1; exit}'
+}
+home_active() { [[ "$(active_uuid)" == "$HOME_PROFILE_UUID" ]]; }
+ap_active()   { [[ "$(active_uuid)" == "$AP_PROFILE_UUID" ]]; }
+
+try_home() {
+    log "Trying HOME connection..."
+    nmcli --wait 20 connection up uuid "$HOME_PROFILE_UUID" ifname "$IFACE" >/dev/null 2>&1
+}
+start_ap() {
+    log "Starting OfflineLibrary hotspot..."
+    nmcli --wait 20 connection up uuid "$AP_PROFILE_UUID" ifname "$IFACE" >/dev/null 2>&1
+}
+ap_clients() {
+    iw dev "$IFACE" station dump 2>/dev/null |
+        awk '/^Station / { n++ } END { print n+0 }'
+}
+
+nmcli radio wifi on || log "Warning: could not enable Wi-Fi radio"
+log "AUTO mode starting."
+
+if home_active; then
+    log "HOME already active."
+elif try_home; then
+    log "HOME connected."
+elif start_ap; then
+    log "HOME unavailable; HOTSPOT active."
+else
+    log "ERROR: Could not start HOME or HOTSPOT."
+    exit 1
+fi
+
+last_ap_probe=$(date +%s)
+while true; do
+    if home_active; then
+        sleep "$CHECK_INTERVAL"
+        if home_active; then continue; fi
+        log "HOME connection lost; waiting ${FAILOVER_GRACE}s."
+        recovered=0
+        elapsed=0
+        while (( elapsed < FAILOVER_GRACE )); do
+            sleep 5
+            elapsed=$((elapsed+5))
+            if home_active; then
+                log "HOME recovered automatically."
+                recovered=1
+                break
+            fi
+        done
+        if (( recovered )); then continue; fi
+        if try_home; then
+            log "HOME reconnected."
+            continue
+        fi
+        if start_ap; then
+            log "Failover to HOTSPOT successful."
+            last_ap_probe=$(date +%s)
+        else
+            log "ERROR: HOTSPOT failed to start."
+            exit 1
+        fi
+        continue
+    fi
+
+    if ap_active; then
+        # Don't deliberately disconnect a hotspot with active clients.
+        if (( $(ap_clients) > 0 )); then
+            sleep "$CHECK_INTERVAL"
+            continue
+        fi
+        now=$(date +%s)
+        if (( now - last_ap_probe >= AP_RETRY_INTERVAL )); then
+            log "No HOTSPOT clients; trying HOME."
+            if try_home; then
+                log "HOME restored."
+                continue
+            fi
+            if ! start_ap; then
+                log "ERROR: Could not restore HOTSPOT."
+                exit 1
+            fi
+            last_ap_probe=$(date +%s)
+        fi
+        sleep "$CHECK_INTERVAL"
+        continue
+    fi
+
+    log "Neither HOME nor HOTSPOT active."
+    if try_home; then
+        log "HOME connected."
+    elif start_ap; then
+        log "HOTSPOT active."
+        last_ap_probe=$(date +%s)
+    else
+        log "ERROR: Cannot establish Wi-Fi."
+        exit 1
+    fi
+    sleep "$CHECK_INTERVAL"
+done

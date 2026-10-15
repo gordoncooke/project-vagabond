@@ -1,0 +1,13 @@
+[Unit]
+Description=Offline Emergency Library Physical Network Mode Switch
+After=NetworkManager.service
+Wants=NetworkManager.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/library-network-switch
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

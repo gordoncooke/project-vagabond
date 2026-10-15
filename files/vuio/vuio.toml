@@ -1,0 +1,52 @@
+# VuIO Server Configuration
+# This is the default configuration file for VuIO
+
+[server]
+port = 8080
+interface = "0.0.0.0"
+name = "Offline Library"
+
+[network]
+ssdp_port = 1900
+interface_selection = "auto"
+multicast_ttl = 2
+announce_interval_seconds = 30
+
+[media]
+scan_on_startup = true
+watch_for_changes = true
+supported_extensions = ["mp4", "mkv", "avi", "mp3", "flac", "wav", "jpg", "png", "gif"]
+
+[[media.directories]]
+path = "/srv/library/media/tv"
+recursive = true
+validation_mode = "Warn"
+
+[[media.directories]]
+path = "/srv/library/media/music"
+recursive = true
+validation_mode = "Warn"
+
+[[media.directories]]
+path = "/srv/library/media/pictures"
+recursive = true
+validation_mode = "Warn"
+
+[[media.directories]]
+exclude_patterns = [".*", "*.tmp", "*.temp", "lost+found", ".Trash-*"]
+path = "/srv/library/media/movies"
+recursive = true
+
+[database]
+vacuum_on_startup = false
+backup_enabled = true
+
+[management]
+enabled = false
+token_file = "/var/lib/vuio/admin.token"
+
+[mcp]
+enabled = false
+
+[mediainfo]
+enabled = true

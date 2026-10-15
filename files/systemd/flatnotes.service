@@ -1,0 +1,27 @@
+[Unit]
+Description=FlatNotes
+After=network.target
+
+[Service]
+Type=simple
+User=flatnotes
+Group=flatnotes
+WorkingDirectory=/opt/flatnotes
+
+Environment=FLATNOTES_PATH=/srv/library/notes
+Environment=FLATNOTES_PATH_PREFIX=/notes
+Environment=FLATNOTES_AUTH_TYPE=none
+Environment=PYTHONUNBUFFERED=1
+
+ExecStart=/opt/flatnotes/.venv/bin/python -m uvicorn main:app \
+    --app-dir server \
+    --host 127.0.0.1 \
+    --port 8082 \
+    --proxy-headers \
+    --forwarded-allow-ips=127.0.0.1
+
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,134 @@
+#!/usr/bin/env python3
+
+import sys
+import time
+import subprocess
+from datetime import timedelta
+
+import gpiod
+from gpiod.line import Direction, Bias, Edge, Value
+
+
+CHIP = "/dev/gpiochip0"
+
+GPIO5 = 5
+GPIO6 = 6
+
+# Require the switch state to remain unchanged for this long.
+SETTLE_SECONDS = 0.5
+
+DRY_RUN = "--dry-run" in sys.argv
+
+
+def log(message):
+    print(f"library-switch: {message}", flush=True)
+
+
+def read_mode(request):
+    values = request.get_values([GPIO5, GPIO6])
+
+    gpio5_high = values[0] == Value.ACTIVE
+    gpio6_high = values[1] == Value.ACTIVE
+
+    if not gpio5_high and gpio6_high:
+        return "HOME", "LOW/HIGH"
+
+    if gpio5_high and gpio6_high:
+        return "AUTO", "HIGH/HIGH"
+
+    if gpio5_high and not gpio6_high:
+        return "HOTSPOT", "HIGH/LOW"
+
+    return "INVALID", "LOW/LOW"
+
+
+def apply_mode(mode, state):
+    if mode == "INVALID":
+        log(f"INVALID switch state {state}; network mode unchanged.")
+        return False
+
+    log(f"Stable switch state {state} -> {mode}")
+
+    if DRY_RUN:
+        log(f"DRY RUN: would select {mode}")
+        return True
+
+    commands = {
+        "HOME": ["/usr/local/sbin/library-home"],
+        "AUTO": ["/usr/local/sbin/library-auto"],
+        "HOTSPOT": ["/usr/local/sbin/library-hotspot"],
+    }
+
+    try:
+        result = subprocess.run(commands[mode], timeout=65, check=False)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        log(f"ERROR selecting {mode}: {exc}")
+        return False
+
+    if result.returncode != 0:
+        log(f"ERROR selecting {mode}: command returned {result.returncode}")
+        return False
+
+    log(f"{mode} selected.")
+    return True
+
+
+settings = gpiod.LineSettings(
+    direction=Direction.INPUT,
+    bias=Bias.PULL_UP,
+    edge_detection=Edge.BOTH,
+)
+
+request = gpiod.request_lines(
+    CHIP,
+    consumer="offline-library-network-switch",
+    config={
+        (GPIO5, GPIO6): settings,
+    },
+)
+
+try:
+    log("GPIO switch controller starting.")
+    log(
+        f"GPIO5={GPIO5}, GPIO6={GPIO6}, "
+        f"settle={SETTLE_SECONDS}s"
+    )
+
+    if DRY_RUN:
+        log("DRY RUN enabled; networking will not be changed.")
+
+    # Let the initial electrical state settle.
+    time.sleep(SETTLE_SECONDS)
+
+    last_mode = None
+    last_attempt = 0.0
+    retry_seconds = 30
+
+    while True:
+        # Poll once per second so a failed mode selection can retry.
+        if request.wait_edge_events(timeout=timedelta(seconds=1)):
+            request.read_edge_events()
+            # Debounce all transitions.
+            while request.wait_edge_events(timeout=timedelta(seconds=SETTLE_SECONDS)):
+                request.read_edge_events()
+
+        mode, state = read_mode(request)
+        if mode == "INVALID":
+            # Invalid intermediate/both-grounded position: retain current mode.
+            continue
+
+        now = time.monotonic()
+        if mode == last_mode:
+            continue
+        if now - last_attempt < retry_seconds:
+            continue
+
+        last_attempt = now
+        if apply_mode(mode, state):
+            last_mode = mode
+
+except KeyboardInterrupt:
+    log("Stopped.")
+
+finally:
+    request.release()
