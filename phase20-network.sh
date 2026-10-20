@@ -182,10 +182,24 @@ python3 -m py_compile /usr/local/sbin/library-network-switch
 python3 -c 'import gpiod; from gpiod.line import Direction, Bias, Edge, Value' 
 systemctl daemon-reload
 
-# Conservative staging: don't take over wlan0 during SSH install or next boot.
-systemctl disable library-network-switch.service >/dev/null 2>&1 || true
+# The physical switch controller runs continuously.
+# It starts/stops the AUTO controller as needed.
+#
+# AUTO controller must not start independently at boot,
+# since HOME and HOTSPOT are also valid initial switch positions.
 systemctl disable library-network-auto.service >/dev/null 2>&1 || true
 
-echo 'PASS: HOME profile preserved; hotspot and controllers installed.'
-echo 'The physical switch service is DISABLED pending a controlled test.'
-echo 'When ready: sudo systemctl enable library-network-switch.service'
+# Enable and start physical switch monitoring.
+systemctl enable --now library-network-switch.service
+
+# Verify switch controller started.
+if ! systemctl is-active --quiet library-network-switch.service; then
+    echo "ERROR: Network switch controller failed to start." >&2
+    journalctl -u library-network-switch.service -n 30 --no-pager
+    exit 1
+fi
+
+echo 'Physical network switch controller enabled and active.'
+echo 'AUTO network controller starts automatically when AUTO is selected.'
+
+echo 'Network installation complete.'

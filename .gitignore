@@ -4,3 +4,6 @@
 
 # Downloaded by install.sh when missing; too large for a normal GitHub Git push.
 /packages/Emulator-js-4.2.3.7z
+
+# Local game library content.
+/games-library1/

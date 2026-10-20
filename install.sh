@@ -1,5 +1,12 @@
 #!/usr/bin/env bash
 
+# Color Definitions
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color (Reset)
+
 # Persistent setup recorded in notes-on-pi-emergency-config-1 through -6.
 # Run from any directory with: sudo bash /path/to/installer/From_Notes_ver4.sh
 
@@ -100,7 +107,7 @@ cp "$REPO_ROOT/files/systemd/journald-persistent.conf" \
 systemctl restart systemd-journald
 journalctl --flush
 
-echo "Preflight complete."
+echo "${YELLOW}Preflight complete.${NC}"
 
 ## 10 Hardware
 apt-get install -y gpiod python3-gpiozero python3-libgpiod \
@@ -117,6 +124,11 @@ chmod +x "$WORK_DIR/UPS-Module-3S/install.sh" "$WORK_DIR/UPS-Module-3S/uninstall
 systemctl daemon-reload
 systemctl enable lafvin-ups.service
 
+# Install our calibrated UPS configuration
+install -o root -g root -m 644 \
+    "$REPO_ROOT/files/ups/lafvin-ups.conf" \
+    /etc/lafvin-ups.conf
+
 # Start UPS monitoring if the hardware is installed and ready
 systemctl start lafvin-ups.service
 
@@ -126,7 +138,7 @@ if ! systemctl is-active --quiet lafvin-ups.service; then
     exit 1
 fi
 
-echo "UPS hardware complete."
+echo "${YELLOW}UPS hardware complete.${NC}"
 
 # Notes 5: final e-ink files and SPI0 CE0 overlay; the earlier timer was removed.
 grep -Fqx 'dtoverlay=spi0-1cs,no_miso' /boot/firmware/config.txt || \
@@ -149,9 +161,9 @@ cp "$REPO_ROOT/files/systemd/offline-eink.service" \
     /etc/systemd/system/offline-eink.service
 systemctl daemon-reload
 systemctl enable offline-eink.service
-echo "E-ink hardware complete."
+echo "${YELLOW}E-ink hardware complete.${NC}"
 
-echo "Hardware setup complete."
+echo "${YELLOW}Hardware setup complete.${NC}"
 
 
 ## 20 Network
@@ -380,7 +392,8 @@ systemctl is-active --quiet kiwix.service || {
 echo "Kiwix installation complete."
 
 ## 50 VuIO
-mkdir -p  "$LIBRARY_ROOT/media"
+mkdir -p "$LIBRARY_ROOT/media"
+mkdir -p "$LIBRARY_ROOT/media/{tv,music,pictures,movies}"
 
 # Notes 2: VuIO media server.
 #curl -fL --output "$WORK_DIR/vuio_arm64.deb" \
@@ -397,9 +410,6 @@ mkdir -p  "$LIBRARY_ROOT/media"
 #cp "$REPO_ROOT/files/vuio/dropins/lan.conf" /etc/systemd/system/vuio.service.d/lan.conf
 #cp "$REPO_ROOT/files/vuio/dropins/config-write.conf" \
 #    /etc/systemd/system/vuio.service.d/config-write.conf
-
-
-## 50 VuIO
 
 # Create shared media group if it does not exist
 if ! getent group library-media >/dev/null; then
@@ -503,7 +513,7 @@ mkdir -p \
 cp -a "$REPO_ROOT/files/maps/." "$LIBRARY_ROOT/maps/"
 
 # Install bundled Protomaps fonts/glyphs
-GLYPH_ARCHIVE="$REPO_ROOT/files/archives/protomaps-font-glyphs-reference-pi.tar.gz"
+GLYPH_ARCHIVE="$REPO_ROOT/packages/protomaps-font-glyphs-reference-pi.tar.gz"
 
 if [[ ! -s "$GLYPH_ARCHIVE" ]]; then
     echo "ERROR: Map glyph archive missing or empty." >&2
@@ -528,7 +538,7 @@ echo "Geographic map content is installed separately."
 ## 70 Flatnotes
 # Notes 2: FlatNotes Pi builds failed; install the captured source and Windows-built client.
 #mkdir -p /opt/flatnotes "$LIBRARY_ROOT/notes"
-#tar -xzf "$REPO_ROOT/files/archives/flatnotes-v5.5.5.tar.gz" \
+#tar -xzf "$REPO_ROOT/packages/flatnotes-v5.5.5.tar.gz" \
 #    -C /opt/flatnotes --no-same-owner --no-same-permissions
 #curl -fL --output "$WORK_DIR/uv-install.sh" https://astral.sh/uv/install.sh
 #sh "$WORK_DIR/uv-install.sh"
@@ -568,7 +578,7 @@ fi
 # Install captured FlatNotes source/client if not installed
 if [[ ! -f /opt/flatnotes/pyproject.toml ]]; then
     tar -xzf \
-        "$REPO_ROOT/files/archives/flatnotes-v5.5.5.tar.gz" \
+        "$REPO_ROOT/packages/flatnotes-v5.5.5.tar.gz" \
         -C /opt/flatnotes \
         --no-same-owner --no-same-permissions
 fi
@@ -622,11 +632,23 @@ if ! systemctl is-active --quiet flatnotes.service; then
     exit 1
 fi
 
-# Verify FlatNotes responds through its configured URL prefix
-if ! curl -fsS --retry 5 --retry-delay 2 \
-    -o /dev/null http://127.0.0.1:8082/notes/; then
+# Wait up to 30 seconds for FlatNotes to become ready
+echo "Waiting for FlatNotes..."
+
+FLATNOTES_READY=false
+
+for attempt in {1..15}; do
+    if curl -fsS -o /dev/null \
+        http://127.0.0.1:8082/notes/; then
+        FLATNOTES_READY=true
+        break
+    fi
+    sleep 2
+done
+
+if [[ "$FLATNOTES_READY" != true ]]; then
     echo "ERROR: FlatNotes HTTP endpoint is not responding." >&2
-    journalctl -u flatnotes.service -n 30 --no-pager
+    journalctl -u flatnotes.service -n 40 --no-pager
     exit 1
 fi
 
@@ -658,6 +680,15 @@ cp -a "$WORK_DIR/emulatorjs/data" "$WEBROOT/games/emulatorjs/"
 cp "$REPO_ROOT/files/games/index.html" "$WEBROOT/games/index.html"
 #TODO: NEED TO ADD SOMETHING FOR GETTING GAME ROMS INTO /var/www/offline-library/games/roms/nes/
 
+# Create ROM directories with appropriate ownership and permissions.
+install -d -o "$PI_USER" -g "$PI_USER" -m 755 \
+    "$WEBROOT/games/roms" \
+    "$WEBROOT/games/roms/nes" \
+    "$WEBROOT/games/roms/gba"
+
+# Ensure existing ROM files and subdirectories are readable by Nginx.
+chmod -R a+rX "$WEBROOT/games/roms"
+
 echo "Games emulator installation complete."
 
 ## 90 Static Tools
@@ -668,7 +699,7 @@ for archive in \
     excalidraw-c0ad61c6.tar.gz \
     minipaint-v4.14.3.tar.gz
 do
-    if [[ ! -s "$REPO_ROOT/files/archives/$archive" ]]; then
+    if [[ ! -s "$REPO_ROOT/packages/$archive" ]]; then
         echo "ERROR: Missing or empty archive: $archive" >&2
         exit 1
     fi
@@ -676,15 +707,15 @@ done
 # Notes 3: unpack the archived browser tools into their final paths.
 mkdir -p "$WEBROOT/tools/cyberchef" "$WEBROOT/tools/omnitools" \
     "$WEBROOT/tools/excalidraw" "$WEBROOT/tools/minipaint"
-tar -xzf "$REPO_ROOT/files/archives/cyberchef-v11.4.0.tar.gz" \
+tar -xzf "$REPO_ROOT/packages/cyberchef-v11.4.0.tar.gz" \
     -C "$WEBROOT/tools/cyberchef" --no-same-owner --no-same-permissions
 cp "$WEBROOT/tools/cyberchef/CyberChef_v11.4.0.html" \
     "$WEBROOT/tools/cyberchef/index.html"
-tar -xzf "$REPO_ROOT/files/archives/omnitools-v0.6.0-89a50e3.tar.gz" \
+tar -xzf "$REPO_ROOT/packages/omnitools-v0.6.0-89a50e3.tar.gz" \
     -C "$WEBROOT/tools/omnitools" --no-same-owner --no-same-permissions
-tar -xzf "$REPO_ROOT/files/archives/excalidraw-c0ad61c6.tar.gz" \
+tar -xzf "$REPO_ROOT/packages/excalidraw-c0ad61c6.tar.gz" \
     -C "$WEBROOT/tools/excalidraw" --no-same-owner --no-same-permissions
-tar -xzf "$REPO_ROOT/files/archives/minipaint-v4.14.3.tar.gz" \
+tar -xzf "$REPO_ROOT/packages/minipaint-v4.14.3.tar.gz" \
     -C "$WEBROOT/tools/minipaint" --no-same-owner --no-same-permissions
 
 # Ensure Nginx can read the static applications

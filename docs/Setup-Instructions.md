@@ -43,4 +43,22 @@ CAUTION: Make sure know which drive is the micro SD card! Formatting or imaging 
 6. Type `yes` and click enter.
 7. You should then be connected and working on the linux system on the Raspberry Pi. The propmt will look like `user@library:~ $`
 
-##
+# Install the Offline Library
+
+## Install Git & Clone the Repo
+After you SSH into the pi, run the following commands
+```
+sudo apt update
+sudo apt install -y git
+cd ~
+git clone https://github.com/gordoncooke/project-vagabond.git
+```
+
+## Run the Installer
+
+1. Enter the repo `cd ~/project-vagabond`
+2. confirm the files are there  `ls -la`
+3. check for syntax errors `bash -n install.sh`  (probably dont need that for a release version)
+4. Start the installer `sudo bash install.sh`
+
+The current installer has a few places where it will pause and wait for you to provide passwords.

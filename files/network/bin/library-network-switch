@@ -102,6 +102,7 @@ try:
 
     last_mode = None
     last_attempt = 0.0
+    last_attempt_mode = None
     retry_seconds = 30
 
     while True:
@@ -120,10 +121,14 @@ try:
         now = time.monotonic()
         if mode == last_mode:
             continue
-        if now - last_attempt < retry_seconds:
+
+        # Retry delay applies only to repeated attempts at the same mode.
+        if mode == last_attempt_mode and now - last_attempt < retry_seconds:
             continue
 
         last_attempt = now
+        last_attempt_mode = mode
+
         if apply_mode(mode, state):
             last_mode = mode
 
