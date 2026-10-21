@@ -840,7 +840,7 @@ install -m 755 \
 # Identify a recent available Protomaps build
 BUILD_DATE=""
 
-for days_ago in {0..7}; do
+for days_ago in {0..30}; do
     CANDIDATE="$(date -u -d "$days_ago days ago" +%Y%m%d)"
 
     if curl -fsSL --range 0-0 \
@@ -856,6 +856,15 @@ if [[ -z "$BUILD_DATE" ]]; then
     echo "ERROR: Could not find a recent Protomaps build." >&2
     exit 1
 fi
+
+# Extract full planet 130GB
+#TODO wrap these as options to do full or partial.
+#wget -c \
+#  "https://build.protomaps.com/${BUILD_DATE}.pmtiles" \
+#  -O "$LIBRARY_ROOT/maps/data/planet.pmtiles"
+#
+#pmtiles verify "$LIBRARY_ROOT/maps/data/planet.pmtiles"
+# and need to update map page to use /maps/data/planet.pmtiles
 
 # Extract selected geographic region
 pmtiles extract \
