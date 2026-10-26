@@ -3,7 +3,7 @@ const demSource = new mlcontour.DemSource({
         "/maps/data/terrain/{z}/{x}/{y}.webp",
 
     encoding: "terrarium",
-    maxzoom: 12,
+    maxzoom: 13,
     worker: true
 });
 
@@ -661,7 +661,7 @@ function initializeTopo() {
 
         tileSize: 512,
 
-        maxzoom: 12
+        maxzoom: 13
     });
 
 

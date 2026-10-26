@@ -83,7 +83,9 @@ const protocol = new pmtiles.Protocol();
 maplibregl.addProtocol("pmtiles", protocol.tile);
 
 const PMTILES_URL =
-    window.location.origin + "/maps/data/hudson-valley.pmtiles";
+    window.location.origin + "/maps/data/hudson-valley.pmtiles"; 
+    <!--TODO: generalize to local not hudson valley. -->
+    <!--window.location.origin + "/maps/data/planet.pmtiles";  -->
 
 const GLYPHS_URL =
     window.location.origin +
